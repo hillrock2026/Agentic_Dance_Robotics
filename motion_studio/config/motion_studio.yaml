@@ -1,0 +1,24 @@
+# Motion Studio configuration
+paths:
+  project_root: /home/liu/workspace/Agentic_Program/Agentic_Dance_Robotics
+  gvhmr_repo: /home/liu/workspace/Agentic_Program/Agentic_Dance_Robotics/tools/GVHMR
+  gvhmr_python: /home/liu/anaconda3/envs/gvhmr/bin/python
+  blender: /home/liu/workspace/Agentic_Program/Agentic_Dance_Robotics/tools/blender-4.5.16-linux-x64/blender
+  smpl_core_model: /home/liu/workspace/Agentic_Program/Agentic_Dance_Robotics/motion_studio/assets/smpl/smpl_neutral_core.npz
+  outputs_root: /home/liu/workspace/Agentic_Program/Agentic_Dance_Robotics/motion_studio/outputs
+
+gvhmr:
+  static_cam: true          # dance tutorial videos use a tripod camera
+  render_preview: true      # render incam/global preview videos
+  max_video_seconds: 60     # refuse overly long clips (memory guard)
+  adapter_script: motion_studio/gvhmr/export_raw_npz.py
+
+export:
+  default_name: clean_motion
+
+foot_contact:
+  height_threshold: 0.05    # m above estimated ground
+  velocity_threshold: 0.30  # m/s vertical
+  horizontal_velocity_threshold: 0.60  # m/s horizontal
+  min_interval_frames: 3
+  hysteresis_off_scale: 2.0 # release thresholds are thresholds * scale

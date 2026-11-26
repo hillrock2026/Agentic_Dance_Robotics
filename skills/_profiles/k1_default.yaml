@@ -1,0 +1,26 @@
+# Shared Booster K1 robot profile (K1_DANCE_SKILL_FRAMEWORK_02).
+#
+# Robot-level facts every K1 dance skill shares. Per-skill control
+# profiles `extends: k1_default` and override the policy-level values
+# (PD gains / effort limits / stepping) they were trained under.
+#
+# CSV joint order (deploy & metrics convention), 22 DOF:
+#   0:2  head yaw, head pitch
+#   2:6  left arm  (shoulder pitch/roll, elbow pitch/yaw)
+#   6:10 right arm
+#   10:16 left leg  (hip pitch/roll/yaw, knee, ankle pitch/roll)
+#   16:22 right leg
+
+profile_id: k1_default
+model: booster_k1
+dof: 22
+policy_dt: 0.02
+action_scale_rule: "per joint: 0.25 * effort_limit / stiffness (booster_train K1_ACTION_SCALE)"
+joint_groups:                 # index slices into the 22-dof CSV order
+  head: [0, 2]
+  arms: [2, 10]
+  legs: [10, 22]
+  shoulders: [2, 4]           # within-arm: pitch+roll handled as [2,4)+[6,8) at skill level
+notes: >
+  Stepping invariant enforced by the framework for every skill:
+  physics_dt * decimation == policy_dt == 1 / motion fps.

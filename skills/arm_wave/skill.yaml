@@ -1,0 +1,125 @@
+# K1 Dance Skill Definition v2 — Standing Arm Wave
+# (upper body, stationary root). First skill of the framework
+# (K1_DANCE_SKILL_FRAMEWORK_01), migrated to schema v2 in
+# K1_DANCE_SKILL_FRAMEWORK_02: robot facts inherited from the shared
+# k1_default profile, role-mapped runtime policies.
+
+schema_version: 2
+
+skill_id: arm_wave
+version: 2.0.0
+description: >
+  Standing Arm Wave: cyclic upper-body wave with stationary root. Root
+  fixed at the official stance (pos (0,0,0.555023), identity quat);
+  22-joint trajectories identical to the original retargeting
+  (K1_ARM_WAVE_ROOT_REFERENCE_CORRECTION_01).
+artifact_prefix: k1_arm_wave_usr
+
+root_mode: stationary
+
+motion:
+  kind: cyclic
+  fps: 50
+  source_frames: 246                 # 4.92 s action
+  transition_frames: 25              # 0.5 s cubic-Hermite loop closure
+  resources:
+    dataset_trajectory: datasets/k1_dance_v1/arm_wave_upper_body_stationary_root/trajectory.csv
+    dataset_metadata: datasets/k1_dance_v1/arm_wave_upper_body_stationary_root/metadata.json
+    booster_csv: virtual_k1/assets/booster_assets/motions/K1/k1_arm_wave_upper_body_stationary_root.csv
+    train_npz: virtual_k1/assets/booster_assets/motions/K1/k1_arm_wave_upper_body_stationary_root.npz
+    deploy_npz: tools/booster_deploy/tasks/beyond_mimic/robots/k1/motions/k1_arm_wave_upper_body_stationary_root.npz
+    deploy_npz_cyclic: tools/booster_deploy/tasks/beyond_mimic/robots/k1/motions/k1_arm_wave_upper_body_stationary_root_cyclic.npz
+
+robot:
+  model: booster_k1
+  dof: 22
+  mujoco_model: K1_22dof.xml (booster_deploy)
+
+# ---------------------------------------------------------------------------
+# Control profile — shared robot facts from skills/_profiles/k1_default.yaml
+# (model / dof / policy_dt / action-scale rule / joint groups); the skill
+# declares the policy-level values it was trained under. Cross-checked
+# against the deploy task config by `k1_skills validate`.
+# ---------------------------------------------------------------------------
+control_profile:
+  extends: k1_default
+  pd_gains_source: booster_train/assets/robots/booster_k1.py (BOOSTER_K1_CFG)
+  physics_dt: 0.005
+  decimation: 4
+  policy_frequency_hz: 50
+  joint_stiffness: [
+    3.9478417602100686, 3.9478417602100686,             # head yaw/pitch
+    3.9478417602100686, 3.9478417602100686, 3.9478417602100686, 3.9478417602100686,   # left arm
+    3.9478417602100686, 3.9478417602100686, 3.9478417602100686, 3.9478417602100686,   # right arm
+    30.200989465607023, 21.447961045805584, 17.846013389258083, 60.401978931214046, 24.984418744961317, 7.1384053557032345,   # left leg
+    30.200989465607023, 21.447961045805584, 17.846013389258083, 60.401978931214046, 24.984418744961317, 7.1384053557032345,   # right leg
+  ]
+  joint_damping: [
+    0.25132741228, 0.25132741228,
+    0.25132741228, 0.25132741228, 0.25132741228, 0.25132741228,
+    0.25132741228, 0.25132741228, 0.25132741228, 0.25132741228,
+    3.60497756989125, 2.560161764834957, 2.1302109340993156, 4.806636759855, 2.9822953077390415, 0.8520843736397263,
+    3.60497756989125, 2.560161764834957, 2.1302109340993156, 4.806636759855, 2.9822953077390415, 0.8520843736397263,
+  ]
+  effort_limit: [
+    6.0, 6.0,
+    14.0, 14.0, 14.0, 14.0,
+    14.0, 14.0, 14.0, 14.0,
+    68.0, 43.0, 38.3, 112.0, 38.3, 38.3,
+    68.0, 43.0, 38.3, 112.0, 38.3, 38.3,
+  ]
+
+observation_profile:
+  recipe: booster_train beyond_mimic (wo state estimation)
+  config: tools/booster_train/.../beyond_mimic/robots/k1/mj_dance_002/tracking_env_cfg.py::ObservationsCfg
+  policy_terms: [generated_command, motion_anchor_pos_b, motion_anchor_ori_b,
+                 base_ang_vel, joint_pos, joint_vel, last_action]
+  privileged_terms: [command, motion_anchor_pos_b, motion_anchor_ori_b,
+                     body_pos, body_ori, base_lin_vel, base_ang_vel,
+                     joint_pos, joint_vel, last_action]
+  overrides: {}
+
+reward_profile:
+  recipe: booster_train beyond_mimic K1 tracking (validated on mj_dance_002 / arm_wave)
+  config: tools/booster_train/.../beyond_mimic/robots/k1/mj_dance_002/tracking_env_cfg.py::RewardsCfg
+  key_terms:
+    motion_body_pos: 1.5
+    motion_body_ori: 1.0
+    motion_foot_pos: 1.5
+    motion_foot_ori: 1.5
+    action_rate_l2: -0.1
+    joint_limit: -10.0
+    undesired_contacts: -0.3
+  per_skill_overrides: {}
+
+training_profile:
+  framework: isaaclab_manager_based + rsl_rl PPO
+  task_id: Booster-K1-Arm_Wave_USR-v0
+  play_task_id: Booster-K1-Arm_Wave_USR-v0-Play
+  experiment_name: k1_arm_wave_usr
+  task_config: tools/booster_train/.../beyond_mimic/robots/k1/arm_wave_usr/
+  num_envs: 4096
+  max_iterations: 3000
+  seed: 42
+  network: [512, 256, 128]
+
+runtime_profile:
+  record_script: scripts/deploy_mujoco_record_cyclic.py
+  policies:
+    baseline:
+      deploy_task: k1_arm_wave_usr
+      policy_file: k1_arm_wave.jit          # model_2999 (RL_PIPELINE_01), zero-shot
+    trained:
+      deploy_task: k1_arm_wave_usr_v2
+      policy_file: k1_arm_wave_usr_v2.jit   # staged by `k1_skills export`
+
+evaluation_profile:
+  engine: k1_skills.evaluation
+  metrics: [joint_tracking_error, arm_motion_amplitude, arm_motion_velocity,
+            root_drift, fall_rate, foot_contact, cycle_consistency]
+  custom_metrics: []
+
+baseline:
+  description: model_2999 (K1_ARM_WAVE_RL_PIPELINE_01) exported JIT, zero-shot on the stationary-root reference
+  deploy_task: k1_arm_wave_usr
+  provenance_report: docs/K1_ARM_WAVE_ROOT_REFERENCE_CORRECTION_01_REPORT.md

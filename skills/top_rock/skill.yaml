@@ -1,0 +1,99 @@
+# K1 Dance Skill Definition v2 — Top Rock
+# Third skill (K1_DANCE_SKILL_003_MOTION_RETARGETING_01): first FULL-BODY
+# street-dance reference. Source: HIPHOP_87elements segment_082 (4.92 s),
+# GVHMR reconstruction -> motion studio edit (trim 10-110 @30fps, 0.7x
+# slow-down for step inspection) -> k1_action per-chain direction-IK
+# retargeting (full_body mode) -> 286 frames @50 Hz.
+
+schema_version: 2
+
+skill_id: top_rock
+version: 1.0.0
+description: >
+  B-boy Top Rock: full-body footwork with arm swings and trunk turns
+  (free root: 1.26 m xy path, 100 deg yaw span). Oneshot take of 5.72 s.
+  Retarget quality: upper-arm 2.1 deg / thigh 0.3 deg median chain error;
+  joint limits clean; no joint exceeds 8 rad/s. Policy to be trained via
+  Booster-K1-Top_Rock-v0.
+artifact_prefix: k1_top_rock
+
+root_mode: free
+
+motion:
+  kind: oneshot
+  fps: 50
+  source_frames: 286
+  resources:
+    dataset_trajectory: datasets/k1_dance_v1/top_rock/trajectory.csv
+    dataset_metadata: datasets/k1_dance_v1/top_rock/metadata.json
+    dataset_validation: datasets/k1_dance_v1/top_rock/validation.json
+    booster_csv: virtual_k1/assets/booster_assets/motions/K1/k1_top_rock.csv
+    train_npz: virtual_k1/assets/booster_assets/motions/K1/k1_top_rock.npz
+    deploy_npz: tools/booster_deploy/tasks/beyond_mimic/robots/k1/motions/k1_top_rock.npz
+
+robot:
+  model: booster_k1
+  dof: 22
+
+# Trained (future) under the same BOOSTER_K1_CFG actuator recipe as
+# arm_wave: identical gains/stepping, 50 Hz policy, 4 x 5 ms physics.
+control_profile:
+  extends: k1_default
+  pd_gains_source: booster_train/assets/robots/booster_k1.py (BOOSTER_K1_CFG)
+  physics_dt: 0.005
+  decimation: 4
+  policy_frequency_hz: 50
+  joint_stiffness: [
+    3.9478417602100686, 3.9478417602100686,
+    3.9478417602100686, 3.9478417602100686, 3.9478417602100686, 3.9478417602100686,
+    3.9478417602100686, 3.9478417602100686, 3.9478417602100686, 3.9478417602100686,
+    30.200989465607023, 21.447961045805584, 17.846013389258083, 60.401978931214046, 24.984418744961317, 7.1384053557032345,
+    30.200989465607023, 21.447961045805584, 17.846013389258083, 60.401978931214046, 24.984418744961317, 7.1384053557032345,
+  ]
+  joint_damping: [
+    0.25132741228, 0.25132741228,
+    0.25132741228, 0.25132741228, 0.25132741228, 0.25132741228,
+    0.25132741228, 0.25132741228, 0.25132741228, 0.25132741228,
+    3.60497756989125, 2.560161764834957, 2.1302109340993156, 4.806636759855, 2.9822953077390415, 0.8520843736397263,
+    3.60497756989125, 2.560161764834957, 2.1302109340993156, 4.806636759855, 2.9822953077390415, 0.8520843736397263,
+  ]
+  effort_limit: [
+    6.0, 6.0,
+    14.0, 14.0, 14.0, 14.0,
+    14.0, 14.0, 14.0, 14.0,
+    68.0, 43.0, 38.3, 112.0, 38.3, 38.3,
+    68.0, 43.0, 38.3, 112.0, 38.3, 38.3,
+  ]
+
+observation_profile:
+  recipe: booster_train beyond_mimic (wo state estimation)
+  config: tools/booster_train/.../beyond_mimic/robots/k1/mj_dance_002/tracking_env_cfg.py::ObservationsCfg
+
+reward_profile:
+  recipe: booster_train beyond_mimic K1 tracking
+  config: tools/booster_train/.../beyond_mimic/robots/k1/mj_dance_002/tracking_env_cfg.py::RewardsCfg
+
+training_profile:
+  framework: isaaclab_manager_based + rsl_rl PPO
+  task_id: Booster-K1-Top_Rock-v0
+  play_task_id: Booster-K1-Top_Rock-v0-Play
+  experiment_name: k1_top_rock
+  num_envs: 4096
+  max_iterations: 3000
+  seed: 42
+
+runtime_profile:
+  record_script: scripts/deploy_mujoco_record_cyclic.py
+  policies:
+    trained:
+      deploy_task: k1_top_rock_trained
+      # policy_file deliberately absent: no trained policy yet (RL training
+      # is the next task); staged as k1_top_rock.jit by k1_skills export.
+
+evaluation_profile:
+  engine: k1_skills.evaluation
+  metrics: [joint_tracking_error, arm_motion_amplitude, arm_motion_velocity,
+            root_drift, fall_rate, foot_contact]
+
+baseline:
+  description: none yet — reference validated kinematically; RL training pending

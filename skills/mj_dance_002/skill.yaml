@@ -1,0 +1,105 @@
+# K1 Dance Skill Definition v2 — MJ Dance 002 segment 1
+# (k1_mj2_seg1). Second skill onboarded (K1_DANCE_SKILL_FRAMEWORK_02
+# multi-skill reuse verification): exercises the oneshot motion kind and
+# the free root mode — everything else (robot profile, engine wiring,
+# CLI, evaluation) is shared framework machinery.
+
+schema_version: 2
+
+skill_id: mj_dance_002
+version: 1.0.0
+description: >
+  MJ Dance 002 segment 1: full-body dance take (25.2 s, free root with
+  translation and turns). Oneshot motion: a run plays the take exactly
+  once. Baseline policy is the pretrained Booster-released checkpoint;
+  the framework can retrain it via the registered Booster-K1 task.
+artifact_prefix: k1_mj2
+
+root_mode: free
+
+motion:
+  kind: oneshot
+  fps: 50
+  source_frames: 1261              # train npz frames (deploy npz: 1260, +-1 tolerated)
+  resources:
+    booster_csv: virtual_k1/assets/booster_assets/motions/K1/k1_mj2_seg1.csv
+    train_npz: virtual_k1/assets/booster_assets/motions/K1/k1_mj2_seg1.npz
+    # legacy Booster release npz: no joint_names metadata. The order is
+    # DECLARED to match train_npz (a canonically-verified named resource)
+    # and the claim is BOUND to the exact file content via SHA256,
+    # recomputed at every load — any modification (including column
+    # swaps of identical trajectories) voids the declaration.
+    deploy_npz:
+      path: tools/booster_deploy/tasks/beyond_mimic/robots/k1/motions/k1_mj2_seg1.npz
+      joint_order: train_npz
+      content_sha256: 22840f7311ce87131c29341a8aa26de28a25c9f7fa999e13e52abcdbd2253224
+
+robot:
+  model: booster_k1
+  dof: 22
+
+# Trained/released under the k1_mj2 actuator set (see K1MJ2ControllerCfg);
+# stepping 10 x 2 ms = 20 ms = 50 Hz satisfies the shared invariant.
+control_profile:
+  extends: k1_default
+  pd_gains_source: tools/booster_deploy/.../robots/k1/__init__.py::K1MJ2ControllerCfg
+  physics_dt: 0.002
+  decimation: 10
+  policy_frequency_hz: 50
+  joint_stiffness: [
+    10.0, 10.0,
+    4.0, 4.0, 4.0, 4.0,
+    4.0, 4.0, 4.0, 4.0,
+    80.0, 80.0, 80.0, 80.0, 30.0, 30.0,
+    80.0, 80.0, 80.0, 80.0, 30.0, 30.0,
+  ]
+  joint_damping: [
+    2.0, 2.0,
+    1.0, 1.0, 1.0, 1.0,
+    1.0, 1.0, 1.0, 1.0,
+    2.0, 2.0, 2.0, 2.0, 2.0, 2.0,
+    2.0, 2.0, 2.0, 2.0, 2.0, 2.0,
+  ]
+  effort_limit: [
+    6, 6,
+    14, 14, 14, 14,
+    14, 14, 14, 14,
+    30, 35, 20, 40, 20, 20,
+    30, 35, 20, 40, 20, 20,
+  ]
+
+observation_profile:
+  recipe: booster_train beyond_mimic (wo state estimation)
+  config: tools/booster_train/.../beyond_mimic/robots/k1/mj_dance_002/tracking_env_cfg.py::ObservationsCfg
+
+reward_profile:
+  recipe: booster_train beyond_mimic K1 tracking
+  config: tools/booster_train/.../beyond_mimic/robots/k1/mj_dance_002/tracking_env_cfg.py::RewardsCfg
+
+training_profile:
+  framework: isaaclab_manager_based + rsl_rl PPO
+  task_id: Booster-K1-MJ_Dance_002-v0
+  play_task_id: Booster-K1-MJ_Dance_002-v0-Play
+  experiment_name: k1_mj_dance_002
+  num_envs: 4096
+  max_iterations: 3000
+  seed: 42
+
+runtime_profile:
+  record_script: scripts/deploy_mujoco_record_cyclic.py
+  policies:
+    baseline:
+      deploy_task: k1_mj2
+      policy_file: k1_mj_dance_002_2025-12-03_00-10-28.pt   # Booster-released pretrained
+    trained:
+      deploy_task: k1_mj2_trained
+      policy_file: k1_mj2_trained.jit                       # staged by `k1_skills export`
+
+evaluation_profile:
+  engine: k1_skills.evaluation
+  metrics: [joint_tracking_error, arm_motion_amplitude, arm_motion_velocity,
+            root_drift, fall_rate, foot_contact]
+  # cycle_consistency intentionally omitted: oneshot take
+
+baseline:
+  description: Booster-released pretrained policy shipped with booster_deploy

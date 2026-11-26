@@ -1,0 +1,105 @@
+# =============================================================================
+# Virtual K1 仿真配置
+# 模型: Booster K1 官方 MuJoCo 模型 (22 DoF)
+# 所有路径相对本文件所在目录 (virtual_k1/config/)
+# =============================================================================
+
+# --- 官方模型资源来源记录 -----------------------------------------------------
+# 仓库:   https://github.com/BoosterRobotics/booster_assets.git
+# 分支:   main (shallow clone, depth=1)
+# commit: 12a97516f57469078707afb587a5f84c1cb110d1
+# 日期:   2026-09-26
+# 模型:   robots/K1/K1_22dof.xml (标准 22 DoF 版, torque/motor actuator)
+model:
+  path: "../assets/booster_assets/robots/K1/K1_22dof.xml"
+  name: "K1_22dof"
+
+# --- 初始站立姿态 -------------------------------------------------------------
+# 姿态来源 (provenance):
+#   腿部 12 个关节: booster_assets/motions/K1/k1_fight_001.csv 第 1 数据帧
+#                  (官方重定向动作数据的站立起始帧, 轻微屈膝)
+#   手臂 8 个 + 头部 2 个关节: booster_assets/motions/K1/k1_fight_001.csv 第 1 帧
+#                  (手臂自然下垂位: shoulder_roll ∓1.449, elbow_yaw ∓0.506;
+#                   注: K1 模型手臂零位为 T 字平举, 下垂需 roll ∓1.45)
+#   root 高度 0.5510 m: 由腿部关节角经 mj_forward 运动学计算得到,
+#                       足底碰撞盒最低点 z = 0.5505 (trunk z=1.0 时),
+#                       加 0.5 mm 间隙避免初始穿透 => 1.0 - 0.4495 + 0.0005
+#   参考: 官方动作首帧 root z = 0.5550 m, 与本配置一致 (差 4.5 mm)
+initial_pose:
+  root_position: [0.0, 0.0, 0.5510]
+  root_quat_wxyz: [1.0, 0.0, 0.0, 0.0]
+  joints:
+    aahead_yaw_joint: 0.0
+    aahead_pitch_joint: 0.0
+    aaleft_shoulder_pitch_joint: 0.200621
+    left_shoulder_roll_joint: -1.448790
+    left_elbow_pitch_joint: 0.002088
+    left_elbow_yaw_joint: -0.506027
+    aaright_shoulder_pitch_joint: 0.198644
+    right_shoulder_roll_joint: 1.448958
+    right_elbow_pitch_joint: 0.003163
+    right_elbow_yaw_joint: 0.503122
+    left_hip_pitch_joint: -0.099420
+    left_hip_roll_joint: 0.000679
+    left_hip_yaw_joint: 0.001213
+    left_knee_pitch_joint: 0.207215
+    left_ankle_pitch_joint: -0.099419
+    left_ankle_roll_joint: -0.000724
+    right_hip_pitch_joint: -0.098906
+    right_hip_roll_joint: 0.000102
+    right_hip_yaw_joint: -0.000745
+    right_knee_pitch_joint: 0.206207
+    right_ankle_pitch_joint: -0.101293
+    right_ankle_roll_joint: -0.000142
+
+# --- 仿真步进 -----------------------------------------------------------------
+sim:
+  # 模型自身 timestep = 0.001 s (官方 XML 设定, 不修改)。
+  # step() 每次调用执行的物理子步数; 控制周期 = timestep * n_substeps
+  n_substeps: 1
+
+# --- 足部接触检测 -------------------------------------------------------------
+contact:
+  # 足部碰撞体所属 body (官方模型中足底碰撞为不可见 box geom)
+  foot_bodies:
+    left: "left_ankle_roll_link"
+    right: "right_ankle_roll_link"
+  # 地面 geom 名称 (官方 XML worldbody 中的 plane)
+  ground_geom_names: ["ground"]
+  # 判定"在接触"的最小法向力 (N)
+  min_normal_force: 0.5
+  # 足底几何检测 (FIX_01) 容差; 几何接近 != 物理接触力, 两者独立读取
+  foot_geometry:
+    # 几何接触判定容差: |clearance| 在带内判 CONTACT (m)
+    contact_tolerance_m: 0.002
+    # 数值计算容差 (理论值对比用, 不参与状态分类) (m)
+    numeric_tolerance_m: 1.0e-6
+
+# --- PD 位置控制器增益 (仅用于本项目的软件控制器, 不修改官方模型) -------------
+# 官方模型 actuator 为 torque/motor, 位置控制由该 PD 控制器实现。
+# kp/kd 单位: Nm/rad, Nm/(rad/s)。力矩输出被官方 forcerange 截断。
+pd_controller:
+  gravity_compensation: true
+  gains:
+    aahead_yaw_joint:            {kp: 5.0,  kd: 0.1}
+    aahead_pitch_joint:          {kp: 5.0,  kd: 0.1}
+    aaleft_shoulder_pitch_joint: {kp: 40.0, kd: 1.0}
+    left_shoulder_roll_joint:    {kp: 40.0, kd: 1.0}
+    left_elbow_pitch_joint:      {kp: 30.0, kd: 0.8}
+    left_elbow_yaw_joint:        {kp: 15.0, kd: 0.4}
+    aaright_shoulder_pitch_joint: {kp: 40.0, kd: 1.0}
+    right_shoulder_roll_joint:   {kp: 40.0, kd: 1.0}
+    right_elbow_pitch_joint:     {kp: 30.0, kd: 0.8}
+    right_elbow_yaw_joint:       {kp: 15.0, kd: 0.4}
+    left_hip_pitch_joint:        {kp: 150.0, kd: 5.0}
+    left_hip_roll_joint:         {kp: 100.0, kd: 4.0}
+    left_hip_yaw_joint:          {kp: 80.0,  kd: 3.0}
+    left_knee_pitch_joint:       {kp: 180.0, kd: 6.0}
+    left_ankle_pitch_joint:      {kp: 60.0,  kd: 2.5}
+    left_ankle_roll_joint:       {kp: 60.0,  kd: 2.5}
+    right_hip_pitch_joint:       {kp: 150.0, kd: 5.0}
+    right_hip_roll_joint:        {kp: 100.0, kd: 4.0}
+    right_hip_yaw_joint:         {kp: 80.0,  kd: 3.0}
+    right_knee_pitch_joint:      {kp: 180.0, kd: 6.0}
+    right_ankle_pitch_joint:     {kp: 60.0,  kd: 2.5}
+    right_ankle_roll_joint:      {kp: 60.0,  kd: 2.5}
